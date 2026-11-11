@@ -1,54 +1,2231 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Codenames Strategy Clue Finder</title>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Codenames Clue Finder</title>
+
 <style>
-:root{color-scheme:dark;--bg:#101722;--p:#1b2839;--line:#3a4b62;--txt:#edf4fc;--muted:#aab8ca;--a:#72c8b5;--red:#ef9097;--gold:#e9c17c}
-*{box-sizing:border-box}body{margin:0;background:linear-gradient(145deg,#17283c,#0e1420);color:var(--txt);font:15px/1.5 system-ui,sans-serif}main{max-width:1100px;margin:32px auto;padding:0 18px 48px}h1{font-size:clamp(2rem,5vw,3rem);margin:0 0 8px}h2{font-size:1.1rem;margin:0 0 12px}.muted,.hint{color:var(--muted);font-size:.87rem}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.panel{background:var(--p);border:1px solid var(--line);border-radius:15px;padding:18px}.wide{grid-column:1/-1}label{display:block;font-weight:700;margin:13px 0 6px}textarea,input[type=text]{width:100%;background:#101a28;color:var(--txt);border:1px solid var(--line);border-radius:9px;padding:11px;font:inherit}textarea{min-height:85px;resize:vertical}.small{min-height:65px}.cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}.op{color:var(--red)}.neu{color:var(--gold)}.row{display:flex;justify-content:space-between;align-items:baseline;gap:12px}.val{color:var(--a);font-weight:800;font-size:1.2rem}input[type=range]{width:100%;accent-color:var(--a)}button{border:0;border-radius:9px;padding:12px 17px;background:var(--a);color:#10221f;font-weight:800;cursor:pointer}button.secondary{background:#304258;color:var(--txt);border:1px solid var(--line)}button:disabled{opacity:.5}.actions{display:flex;gap:9px;margin-top:14px}.status{color:var(--muted);font-size:.88rem;min-height:1.4em;margin-top:10px}.toggle{font-size:.9rem;color:var(--muted);font-weight:500}.toggle input{accent-color:var(--a)}.result{background:#111c2a;border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:11px}.result.risky{opacity:.62;border-color:#80515a;background:#211c28}.top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.clue{font-size:1.35rem;font-weight:850;color:var(--a)}.pill{font-size:.77rem;font-weight:800;border-radius:20px;padding:4px 9px}.safe{background:#17483d;color:#c2f2e3}.warn{background:#594627;color:#ffe1a8}.bad{background:#5c2c35;color:#ffd2d5}.tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}.tag{border-radius:18px;padding:4px 8px;font-size:.81rem;background:#293a50}.hit{background:#174b3e;color:#c5f2e5}.danger{background:#572d36;color:#ffd2d5}.neutral{background:#4b4029;color:#f5dfa9}.detail{font-size:.83rem;color:var(--muted);margin-top:9px}.bar{height:6px;background:#2c3d52;border-radius:8px;margin-top:8px;overflow:hidden}.bar span{display:block;height:100%;background:var(--a)}.note{border:1px solid #6b5431;background:#30291e;color:#f2d9a8;padding:10px;border-radius:9px;font-size:.85rem;margin-top:14px}
-@media(max-width:760px){.grid,.cols{grid-template-columns:1fr}.wide{grid-column:auto}}
-</style></head><body><main>
-<h1>Codenames Clue Finder</h1><p class="muted">Rank one-word clues by how many of your team's words they connect, while penalizing connections to opponents, neutral cards, and especially the assassin.</p>
-<div class="grid">
-<section class="panel"><h2>Board words</h2>
-<label>Your team's words</label><textarea id="targets" placeholder="One word per line or comma-separated&#10;BANK&#10;RIVER&#10;OCEAN&#10;STREAM"></textarea>
-<div class="cols"><div><label class="op">Opponent words</label><textarea id="opponents" class="small" placeholder="Other team's words"></textarea></div><div><label class="neu">Neutral words</label><textarea id="neutrals" class="small" placeholder="Bystander / neutral words"></textarea></div></div>
-<label class="op">Assassin word</label><textarea id="assassin" class="small" placeholder="Enter assassin"></textarea>
-<label>Extra clue candidates <span class="hint">(optional)</span></label><input id="custom" type="text" placeholder="e.g. current, tide, harbor">
-<div class="actions"><button id="find">Find best clues</button><button id="clear" class="secondary">Clear</button></div><div id="status" class="status">First search downloads the language model; internet is required initially.</div>
-</section>
-<section class="panel"><h2>Optimization settings</h2>
-<div class="row"><label>Minimum target similarity</label><span id="tv" class="val">0.30</span></div><input id="threshold" type="range" min=".15" max=".65" step=".01" value=".30"><p class="hint">Lower accepts looser associations and covers more words; higher requires stronger connections.</p>
-<div class="row"><label>Risk aversion</label><span id="rv" class="val">85%</span></div><input id="risk" type="range" min="0" max="100" step="5" value="85"><p class="hint">Controls penalties for opponent and neutral matches. Assassin connections receive a much larger penalty.</p>
-<div class="row"><label>Suggestions to show</label><span id="cv" class="val">15</span></div><input id="count" type="range" min="5" max="30" value="15">
-<label class="toggle"><input id="hide" type="checkbox"> Hide risky clues instead of greying them out</label><label class="toggle"><input id="strict" type="checkbox" checked> Strongly suppress clues related to the assassin</label>
-<div class="note">Similarity scores are not probabilities. Always inspect danger tags and use human judgment before giving a clue.</div></section>
-<section class="panel wide"><div class="row"><h2>Ranked clue suggestions</h2><span id="model" class="hint">Model not loaded</span></div><div id="results" class="muted">Enter your board words and select Find best clues.</div></section>
-</div><p class="muted">Runs in your browser with Transformers.js and MiniLM. No server, account, or API key. The first run downloads the model and may be cached by your browser.</p>
+:root {
+    --black: #171717;
+    --dark: #333;
+    --mid: #777;
+    --light: #e5e5e5;
+    --background: #f5f5f5;
+    --white: #fff;
+    --danger: #777;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: var(--background);
+    color: var(--black);
+    font-family: Arial, Helvetica, sans-serif;
+    line-height: 1.5;
+}
+
+header {
+    background: var(--black);
+    color: white;
+    padding: 25px 20px;
+}
+
+.header-inner {
+    max-width: 1050px;
+    margin: auto;
+}
+
+header h1 {
+    margin: 0;
+    font-size: 26px;
+    letter-spacing: -0.5px;
+}
+
+header p {
+    margin: 5px 0 0;
+    color: #bbb;
+    font-size: 14px;
+}
+
+main {
+    max-width: 1050px;
+    margin: 25px auto;
+    padding: 0 18px;
+}
+
+.panel {
+    background: var(--white);
+    border: 1px solid var(--light);
+    border-radius: 7px;
+    padding: 22px;
+    margin-bottom: 18px;
+}
+
+h2 {
+    font-size: 18px;
+    margin: 0 0 15px;
+}
+
+h3 {
+    font-size: 15px;
+    margin: 0 0 10px;
+}
+
+.section-description {
+    color: var(--mid);
+    font-size: 13px;
+    margin: -8px 0 16px;
+}
+
+.board-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+textarea {
+    width: 100%;
+    min-height: 115px;
+    padding: 11px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    resize: vertical;
+    font: inherit;
+    font-size: 14px;
+}
+
+textarea:focus,
+input:focus {
+    outline: 2px solid #888;
+    outline-offset: 1px;
+}
+
+label {
+    display: block;
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 7px;
+}
+
+.label-note {
+    color: var(--mid);
+    font-weight: normal;
+}
+
+.setting {
+    margin-bottom: 21px;
+}
+
+.setting:last-child {
+    margin-bottom: 0;
+}
+
+.setting-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 7px;
+}
+
+.setting-heading label {
+    margin: 0;
+}
+
+.control-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+input[type="range"] {
+    flex: 1;
+    min-width: 0;
+    accent-color: var(--black);
+    cursor: pointer;
+}
+
+.number-input {
+    width: 72px;
+    padding: 7px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    text-align: center;
+}
+
+.range-value {
+    width: 48px;
+    text-align: right;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.tooltip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 17px;
+    height: 17px;
+    border: 1px solid #888;
+    border-radius: 50%;
+    color: #555;
+    font-size: 11px;
+    cursor: help;
+    margin-left: 5px;
+}
+
+.tooltip .tooltip-text {
+    visibility: hidden;
+    opacity: 0;
+    position: absolute;
+    z-index: 5;
+    bottom: 145%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 245px;
+    padding: 10px;
+    border-radius: 4px;
+    background: #222;
+    color: white;
+    font-size: 12px;
+    font-weight: normal;
+    line-height: 1.5;
+    text-align: left;
+    transition: opacity 0.15s;
+}
+
+.tooltip:hover .tooltip-text,
+.tooltip:focus .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+}
+
+.risk-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 15px;
+}
+
+.risk-card {
+    border: 1px solid var(--light);
+    border-radius: 5px;
+    padding: 14px;
+}
+
+.risk-card h3 {
+    margin-bottom: 12px;
+}
+
+.risk-card .control-row {
+    flex-wrap: wrap;
+}
+
+.risk-card input[type="range"] {
+    width: 100%;
+    flex-basis: 100%;
+}
+
+button {
+    border: 0;
+    border-radius: 4px;
+    background: var(--black);
+    color: white;
+    padding: 12px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #444;
+}
+
+button:disabled {
+    background: #999;
+    cursor: not-allowed;
+}
+
+.secondary-button {
+    background: white;
+    color: var(--black);
+    border: 1px solid #bbb;
+}
+
+.secondary-button:hover {
+    background: #eee;
+}
+
+.button-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.status {
+    font-size: 13px;
+    color: var(--mid);
+    margin-top: 12px;
+    min-height: 20px;
+}
+
+.progress-track {
+    width: 100%;
+    height: 5px;
+    background: #e5e5e5;
+    border-radius: 5px;
+    overflow: hidden;
+    margin-top: 10px;
+}
+
+.progress-bar {
+    height: 100%;
+    width: 0%;
+    background: #444;
+    transition: width 0.2s;
+}
+
+.results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.results-header h2 {
+    margin: 0;
+}
+
+.result-card {
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    margin-bottom: 11px;
+    overflow: hidden;
+    background: white;
+}
+
+.result-card.risky {
+    background: #eee;
+    border-color: #aaa;
+    opacity: 0.78;
+}
+
+.result-main {
+    padding: 15px;
+}
+
+.result-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.clue-name {
+    font-size: 20px;
+    font-weight: 700;
+    text-transform: capitalize;
+    overflow-wrap: anywhere;
+}
+
+.risk-label {
+    color: #666;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.matched-words {
+    margin-top: 7px;
+    font-size: 12px;
+    color: #555;
+}
+
+.matched-words strong {
+    color: #222;
+    font-weight: 600;
+}
+
+.result-card details {
+    border-top: 1px solid #ddd;
+}
+
+.result-card summary {
+    padding: 10px 15px;
+    font-size: 12px;
+    color: #555;
+    cursor: pointer;
+    user-select: none;
+}
+
+.result-card summary:hover {
+    background: #f1f1f1;
+}
+
+.correlation-details {
+    padding: 0 15px 15px;
+}
+
+.correlation-group {
+    margin-top: 12px;
+}
+
+.correlation-group h4 {
+    font-size: 12px;
+    margin: 0 0 5px;
+}
+
+.correlation-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 12px;
+    padding: 3px 0;
+    color: #555;
+    border-bottom: 1px solid #eee;
+}
+
+.correlation-value {
+    font-variant-numeric: tabular-nums;
+}
+
+.empty-state {
+    text-align: center;
+    color: #777;
+    padding: 35px 15px;
+    font-size: 14px;
+}
+
+.small-note {
+    color: #777;
+    font-size: 12px;
+}
+
+.checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+}
+
+.checkbox-row input {
+    accent-color: black;
+}
+
+@media (max-width: 700px) {
+    .board-grid,
+    .risk-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .panel {
+        padding: 16px;
+    }
+
+    header h1 {
+        font-size: 22px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <div class="header-inner">
+        <h1>Codenames Clue Finder</h1>
+        <p>Find clues that connect your team's words while avoiding dangerous associations.</p>
+    </div>
+</header>
+
+<main>
+
+    <section class="panel">
+        <h2>1. Enter the board words</h2>
+        <p class="section-description">
+            Enter one word per line. Multi-word entries are supported.
+        </p>
+
+        <div class="board-grid">
+            <div>
+                <label for="targets">Your team's words</label>
+                <textarea id="targets" placeholder="Apple&#10;Moon&#10;Doctor&#10;River"></textarea>
+            </div>
+
+            <div>
+                <label for="opponents">Opponent words</label>
+                <textarea id="opponents" placeholder="Bank&#10;Tiger&#10;Glass"></textarea>
+            </div>
+
+            <div>
+                <label for="neutrals">Neutral words</label>
+                <textarea id="neutrals" placeholder="Chair&#10;Cloud&#10;Train"></textarea>
+            </div>
+
+            <div>
+                <label for="assassins">Assassin word</label>
+                <textarea id="assassins" placeholder="Enter assassin word"></textarea>
+            </div>
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2>2. Clue settings</h2>
+
+        <div class="setting">
+            <div class="setting-heading">
+                <label for="similarity">
+                    Minimum target similarity
+                    <span class="tooltip" tabindex="0">?
+                        <span class="tooltip-text">
+                            Minimum semantic similarity required for a clue to count as connected to one of your team's words. This is a model similarity score, not a probability. Lower values allow broader associations; higher values require closer associations.
+                        </span>
+                    </span>
+                </label>
+                <span class="range-value" id="similarityValue">0.30</span>
+            </div>
+            <div class="control-row">
+                <input type="range" id="similarity" min="0.10" max="0.90"
+                       step="0.01" value="0.30">
+            </div>
+            <div class="small-note">
+                Suggested starting range: 0.20–0.70
+            </div>
+        </div>
+
+        <div class="setting">
+            <div class="setting-heading">
+                <label for="suggestionCount">Number of suggestions</label>
+                <input class="number-input" type="number" id="suggestionCount"
+                       min="1" max="10" value="10">
+            </div>
+            <input type="range" id="suggestionSlider" min="1" max="10" value="10">
+        </div>
+
+        <div class="setting">
+            <label class="checkbox-row">
+                <input type="checkbox" id="hideRisky">
+                Hide risky clues instead of displaying them greyed out
+            </label>
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2>3. Risk aversion</h2>
+        <p class="section-description">
+            Set how strongly each category affects clue ranking.
+        </p>
+
+        <div class="risk-grid">
+
+            <div class="risk-card">
+                <h3>
+                    Opponents
+                    <span class="tooltip" tabindex="0">?
+                        <span class="tooltip-text">
+                            Controls the penalty for clues that are semantically related to opponent words. At 0%, opponent similarity is ignored. At 100%, the full opponent risk penalty is applied.
+                        </span>
+                    </span>
+                </h3>
+                <div class="control-row">
+                    <input type="range" id="opponentRisk" min="0" max="100" value="85">
+                    <input class="number-input" type="number" id="opponentRiskNumber"
+                           min="0" max="100" value="85">
+                </div>
+            </div>
+
+            <div class="risk-card">
+                <h3>
+                    Neutrals
+                    <span class="tooltip" tabindex="0">?
+                        <span class="tooltip-text">
+                            Controls the penalty for clues that are semantically related to neutral words. At 0%, neutral similarity is ignored. At 100%, the full neutral risk penalty is applied.
+                        </span>
+                    </span>
+                </h3>
+                <div class="control-row">
+                    <input type="range" id="neutralRisk" min="0" max="100" value="60">
+                    <input class="number-input" type="number" id="neutralRiskNumber"
+                           min="0" max="100" value="60">
+                </div>
+            </div>
+
+            <div class="risk-card">
+                <h3>
+                    Assassin
+                    <span class="tooltip" tabindex="0">?
+                        <span class="tooltip-text">
+                            Controls the penalty for clues related to the assassin. At 0%, assassin similarity is ignored. At 100%, the full assassin risk penalty is applied. The assassin also has a substantially larger base risk multiplier.
+                        </span>
+                    </span>
+                </h3>
+                <div class="control-row">
+                    <input type="range" id="assassinRisk" min="0" max="100" value="100">
+                    <input class="number-input" type="number" id="assassinRiskNumber"
+                           min="0" max="100" value="100">
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2>4. Generate clues</h2>
+        <p class="section-description">
+            The first run downloads the language model. Later runs can reuse the browser's cached model.
+        </p>
+
+        <div class="button-row">
+            <button id="generateButton">Generate suggestions</button>
+            <button class="secondary-button" id="clearButton">Clear board</button>
+        </div>
+
+        <div class="status" id="status">Model has not been loaded.</div>
+        <div class="progress-track">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="results-header">
+            <h2>Clue suggestions</h2>
+            <span class="small-note" id="resultCount"></span>
+        </div>
+
+        <div id="results">
+            <div class="empty-state">
+                Enter your board words and generate suggestions.
+            </div>
+        </div>
+    </section>
+
 </main>
+
 <script type="module">
-import {pipeline,env} from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';env.allowLocalModels=false;env.useBrowserCache=true;
-const $=id=>document.getElementById(id),set=(id,s)=>$(id).textContent=s;
-const vocab=`ability accident action actor address adventure age air airport alarm album alley alphabet ambulance animal answer ant apartment apple arch army arrow art artist ash astronaut atmosphere atom author autumn avenue baby bacon badge bag bakery balance ball balloon banana band bank bar barn base basket basketball bath beach bean bear beard bed bee bell belt bench bicycle bird birthday blade blanket blood board boat body bolt book boot border bottle bowl box brain branch bread brick bridge brother brush bucket building bulb bus business butter button cabin cable cactus cafe cage cake calendar camera camp candle candy cannon canoe captain car card carpet carrot castle cat cave ceiling cell chain chair chalk chance change channel cheese cherry chest chicken child chocolate church circle city class clock cloud clown club coach coal coast coat coffee coin college color comb comedy comet company computer concert conductor container contract cook copper copy corner costume cotton country course court cousin cow crab craft crane crash cream credit crew cricket crime crocodile crown crush crystal cube culture cup current curtain customer cycle dad dance danger date daughter day desert design desk diamond dice dinner dinosaur doctor dog doll door dragon drawer dream dress drink driver drum duck dust eagle earth earthquake east echo education egg elbow elephant elevator engine evening event eye face factory fairy family farm farmer fashion father feather fence festival field fighter film finger fire fish flag flame flower fly fog food foot forest fork fortune fountain fox frame freedom friend frog fruit fuel fun galaxy game garage garden gas gate gem ghost giant gift girl glass glove goat gold golf goose government grain grass gravity green grocery ground guitar gym hair hammer hand harbor hat head heart heat helicopter hill history hobby hockey hole holiday honey horse hospital hotel hour house human humor ice idea island jacket jail jam jar jazz jeans jelly jet job joke journey judge jungle key keyboard kid king kitchen kite knee knife knowledge lab lake lamp land language laptop law lawyer leaf leather leg lemon letter library life light lighthouse lightning line lion list lock lunch machine magazine magic magnet mail map marble market mask match material math meal meat mechanic medal medicine memory menu metal meter milk mind mine mirror mission model money monkey moon morning mother mountain mouse mouth movie mud muscle museum music nail name napkin nation nature navy neck needle neighbor nest network news night noise north notebook novel nurse oak ocean office oil onion opera orange orchard organ ornament oven owl oxygen oyster paint painter painting palace pan panda pants paper parade parent park parking party passport pasta patch path patient pattern peace peach peanut pear pen pencil penguin people pepper perfume person phone piano picnic picture pie pig pillow pilot pin pineapple pipe pirate pizza planet plant plate play plum pocket poem police pool popcorn porch port potato powder power prince princess printer prison prize professor program pumpkin puzzle queen question rabbit race radio rainbow rain ranch range rat razor reading recipe record referee refrigerator ribbon rice ring river road robot rock rocket roof room root rope rose ruler salad salt sand sandwich satellite school science scissors scooter screen sea season seat seed sentence server shadow shark sheep sheet shelf ship shirt shoe shop shoulder shovel shower shrimp side sidewalk sign silver singer sister skate ski skin skirt sky sleep slide smoke snake snow soap soccer sock soda sofa soldier song soup south space spider spoon sport spring square squirrel stadium staff stage stamp star station steam steel step stone storm story stove street string student sugar summer sun sunset supermarket supply surface surprise swamp sweater swim swing sword table taco tail teacher team technology telephone television temple tennis tent test theater thief thing thread thunder ticket tiger time tire toast toe tomato tool tooth top tower toy train tree triangle trip truck trumpet tunnel turtle uncle uniform university vacation valley van vase vegetable vehicle verse vest video village violin virus volcano volleyball wagon wall wallet war wash watch water wave weather web wedding west wheel whale wheat whisper wife window wing winter wire wolf woman wood wool world worm writer yard yarn year yellow zebra zero zoo`.split(/\s+/);
-const extra=`abacus abundance academy affection agriculture aircraft aisle algae algorithm alloy altitude anchor ancient angel angle anniversary antenna archaeology architect arena armor aroma artifact asteroid athlete attic auction audience aurora avalanche avocado award bamboo bandage banjo barge barrel basement basin battery bay bazaar beacon beak beam berry beverage biology birch biscuit blizzard blossom blueprint boa boardwalk bonus bottleneck boulevard bowler bravery brewery breeze broccoli bronze broom bubble buffalo bungalow bunker buoy butterfly camouflage canal canary canopy canvas canyon cape capsule caravan carbon cargo carnival carpenter cascade casino cassette cathedral cattle cauliflower celery cement census ceremony chain reaction champion chaos charcoal charity chassis chauffeur chess chestnut chimney chip cinnamon circuit coliseum colony comfort compass constellation construction coral corridor cosmos cottage courage courtroom coyote crater creek cruise cuisine curiosity cylinder dairy daisy dam dashboard database daylight deadline debate deck democracy density departure depth detective device dew diagnosis dialect diary dictionary diplomacy discipline discovery dolphin domino drainage drought dune ecology economy ecosystem edge efficiency election electricity elegance element elite emotion empire energy engineer envelope environment equality equation eruption ethics evidence evolution experiment exploration expression extinction fabric facility factor falcon fantasy faucet fertilizer fiction fingerprint fireplace firefly firewood folklore footprint forecast formula fossil fragrance freight frequency friction frontier frost furnace furniture gallery garlic garment genealogy generator genius geography geology geometry glacier glitter globe gondola granite grapefruit greenhouse grid grief grinder growth habitat hail hammock handshake hardware harmony harvest hatch headline headquarters heritage hero highway hippo horizon horoscope humidity hurricane hypothesis iceberg icicle identity illustration imagination impact import independence index industry inertia innovation insect insight inspiration instrument intellect interaction interior interpretation intersection invention ivory jackpot jaguar jealousy jewelry jigsaw kingdom kiosk lagoon landmark landscape lantern laser laundry lava lawn lawnmower legend leisure lens leopard longitude lumber lunar machinery madness magnolia mainland mammal management mango mansion marathon marsh mascot mathematics meadow measurement mechanism meteor meteorite microscope migration mineral monarchy monument morality mosquito motion motorcycle mountain range movement mystery myth narrative nectar negotiation neighborhood nitrogen nutrition oasis obedience obstacle occupation octopus odor olive orchestra origin oxygen package paddle palette palm parachute pasture patriotism pavement peninsula petroleum philosophy photograph physics pigeon pioneer pipeline pitch planetarium platform pledge poetry poison policy pollination pond population portrait possibility prairie prediction preference preparation pressure probability process psychology pyramid qualification quarry quarterback radar radiator railway rainfall random ratio reality reason recognition referee reflection reliability remedy resilience resolution resource responsibility revolution rhythm robot rocket romance roulette routine ruby runway safari safety sailor sanctuary satellite satisfaction sculpture semaphore sequence settlement shadow shelter sheriff shoreline shortcut skateboard skyline solar spectrum sphere spiral sponge sponsor stability staircase steam engine steel structure submarine summit surface symmetry telescope territory texture thunder tide timeline tournament tradition trajectory transformation translation transportation treasure treaty turbine twilight umbrella universe vacuum validity variation velocity vessel victory viewpoint volcano volume voyage wavelength wilderness wildlife windmill wisdom woodland workshop`.split(/\s+/);
-const candidates=[...new Set([...vocab,...extra])];
-function parse(s){return [...new Set(s.toLowerCase().split(/[\n,;]+/).map(x=>x.trim().replace(/[^a-z'-]/g,'')).filter(Boolean))]}
-function cos(a,b){let d=0,aa=0,bb=0;for(let i=0;i<a.length;i++){d+=a[i]*b[i];aa+=a[i]*a[i];bb+=b[i]*b[i]}return d/(Math.sqrt(aa*bb)||1)}
-function esc(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-$('threshold').oninput=e=>set('tv',(+e.target.value).toFixed(2));$('risk').oninput=e=>set('rv',e.target.value+'%');$('count').oninput=e=>set('cv',e.target.value);
-$('clear').onclick=()=>{['targets','opponents','neutrals','assassin','custom'].forEach(x=>$(x).value='');$('results').textContent='Enter your board words and select Find best clues.';set('status','Board cleared.')};
-let model=null;async function getModel(){if(!model){set('model','Downloading MiniLM…');model=await pipeline('feature-extraction','Xenova/all-MiniLM-L6-v2',{quantized:true})}set('model','MiniLM ready');return model}
-async function embed(m,ws){let map=new Map();for(let i=0;i<ws.length;i+=24){let b=ws.slice(i,i+24),o=await m(b,{pooling:'mean',normalize:true}),a=o.tolist();b.forEach((w,j)=>map.set(w,a[j]));set('status',`Analyzing vocabulary… ${Math.min(i+b.length,ws.length)}/${ws.length}`)}return map}
-$('find').onclick=async()=>{let targets=parse($('targets').value),op=parse($('opponents').value),ne=parse($('neutrals').value),ass=parse($('assassin').value),custom=parse($('custom').value);
-if(targets.length<2){set('status','Enter at least two target words.');return}
-let board=[...new Set([...targets,...op,...ne,...ass])],boardSet=new Set(board),pool=[...new Set([...candidates,...custom])].filter(w=>!boardSet.has(w)&&!['a','an','the','and','or','of','to','in','on','at','for','is','are','be'].includes(w));
-let btn=$('find');btn.disabled=true;$('results').textContent='';try{set('status','Loading semantic model… first run may take a little while');let m=await getModel(),vec=await embed(m,[...new Set([...board,...pool])]),min=+$('threshold').value,risk=+$('risk').value/100,strict=$('strict').checked,rows=[];
-for(let clue of pool){let ts=targets.map(w=>({word:w,sim:cos(vec.get(clue),vec.get(w))})),hits=ts.filter(x=>x.sim>=min);if(!hits.length)continue;
-let os=op.map(w=>({word:w,sim:cos(vec.get(clue),vec.get(w))})),ns=ne.map(w=>({word:w,sim:cos(vec.get(clue),vec.get(w))})),as=ass.length?cos(vec.get(clue),vec.get(ass[0])):0;
-let maxO=os.length?Math.max(...os.map(x=>x.sim)):0,maxN=ns.length?Math.max(...ns.map(x=>x.sim)):0,avg=hits.reduce((s,x)=>s+x.sim,0)/hits.length;
-let oRisk=os.reduce((s,x)=>s+Math.max(0,x.sim-min+.08),0),nRisk=ns.reduce((s,x)=>s+Math.max(0,x.sim-min+.08),0),aRisk=ass.length?Math.max(0,as-min+.12):0;
-let penalty=risk*(oRisk*1.25+nRisk*.85+aRisk*(strict?9:4.5)),score=hits.length*1.5+hits.reduce((s,x)=>s+x.sim,0)*.55+avg*.3-penalty;
-let risky=as>=min-.03||maxO>=min+.03||maxN>=min+.06;rows.push({clue,ts,hits,os,ns,as,maxO,maxN,avg,score,risky})}
-rows.sort((a,b)=>b.score-a.score);let visible=$('hide').checked?rows.filter(x=>!x.risky):rows,top=visible.slice(0,+$('count').value);
-if(!top.length)$('results').innerHTML='<p class="muted">No clues passed. Lower the target threshold, reduce risk aversion, or show risky clues.</p>';
-else $('results').innerHTML=top.map((r,i)=>{let hit=new Set(r.hits.map(x=>x.word)),targetTags=r.ts.map(x=>`<span class="tag ${hit.has(x.word)?'hit':''}">${esc(x.word)} ${x.sim.toFixed(2)}</span>`).join(''),opTags=r.os.map(x=>`<span class="tag danger">Opponent: ${esc(x.word)} ${x.sim.toFixed(2)}</span>`).join(''),neTags=r.ns.map(x=>`<span class="tag neutral">Neutral: ${esc(x.word)} ${x.sim.toFixed(2)}</span>`).join(''),assTag=ass.length?`<span class="tag danger">ASSASSIN: ${esc(ass[0])} ${r.as.toFixed(2)}</span>`:'',state=r.as>=min-.03?'ASSASSIN RISK':r.risky?'BOARD RISK':'LOWER RISK',badge=r.as>=min-.03?'bad':r.risky?'warn':'safe';
-return `<article class="result ${r.risky?'risky':''}"><div class="top"><span class="clue">${i+1}. ${esc(r.clue.toUpperCase())}</span><span class="pill ${badge}">${state}</span></div><div class="muted">${r.hits.length}/${targets.length} target words · score ${r.score.toFixed(2)} · mean matched similarity ${r.avg.toFixed(2)}</div><div class="bar"><span style="width:${100*r.hits.length/targets.length}%"></span></div><div class="tags">${targetTags}</div>${opTags||neTags||assTag?`<div class="detail">Potentially dangerous connections</div><div class="tags">${opTags}${neTags}${assTag}</div>`:''}<div class="detail">Green = target above threshold · grey = weaker target · red = opponent/assassin · gold = neutral. Similarity is not a probability.</div></article>`}).join('');
-set('status',`Finished: ranked ${rows.length} clues. ${$('hide').checked?'Risky clues hidden.':'Risky clues are shown greyed out.'}`);
-}catch(e){console.error(e);set('status','Could not load the model. Check internet and refresh.');$('results').innerHTML=`<p class="op">Model error: ${esc(String(e.message||e))}</p>`}finally{btn.disabled=false}};
-</script></body></html>
+import { pipeline, env } from
+    "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2";
+
+// Browser-only model. No local model download or backend required.
+env.allowLocalModels = false;
+env.useBrowserCache = true;
+
+// -----------------------------------------------------
+// CANDIDATE CLUE VOCABULARY
+// -----------------------------------------------------
+
+const vocabularyText = `
+ability
+absence
+academy
+accident
+account
+action
+activity
+actor
+addition
+address
+adventure
+advertisement
+advice
+africa
+age
+agency
+agent
+agreement
+air
+aircraft
+airport
+alarm
+album
+alcohol
+alien
+alligator
+alley
+alliance
+alphabet
+ambulance
+america
+amount
+amusement
+analysis
+anchor
+angel
+anger
+angle
+animal
+ankle
+announcement
+answer
+ant
+antenna
+antique
+anxiety
+apartment
+apple
+appliance
+application
+appointment
+aquarium
+arch
+archaeology
+area
+arena
+argument
+arm
+army
+arrival
+arrow
+art
+article
+artist
+ash
+asia
+aspect
+assignment
+asteroid
+athlete
+atlas
+atom
+attack
+attempt
+attention
+attic
+attorney
+audience
+aunt
+author
+authority
+automobile
+autumn
+avenue
+award
+baby
+back
+background
+backpack
+bacon
+badge
+bag
+balance
+ball
+balloon
+banana
+band
+bank
+bar
+barbecue
+barber
+bark
+barn
+barrel
+base
+baseball
+basement
+basket
+basketball
+bat
+bath
+bathroom
+battery
+battle
+bay
+beach
+bean
+bear
+beard
+beat
+beauty
+bed
+bedroom
+bee
+beef
+bell
+belt
+bench
+berry
+bicycle
+bird
+birthday
+biscuit
+blade
+blanket
+block
+blood
+blossom
+blue
+board
+boat
+body
+bomb
+bone
+book
+border
+bottle
+bottom
+bow
+bowl
+box
+boy
+brain
+branch
+brass
+bread
+break
+bridge
+brother
+brush
+bubble
+bucket
+building
+bulb
+bull
+bullet
+bunker
+bus
+business
+butter
+button
+cabin
+cabinet
+cable
+cactus
+cake
+calendar
+camera
+camp
+can
+canal
+candle
+candy
+cannon
+canvas
+capital
+captain
+car
+card
+career
+carpet
+carriage
+carrot
+cart
+case
+cash
+casino
+castle
+cat
+catch
+cave
+ceiling
+cell
+center
+century
+ceremony
+chain
+chair
+chalk
+champion
+chance
+change
+channel
+chapter
+character
+charge
+chart
+check
+cheese
+chef
+chemical
+cherry
+chest
+chicken
+chief
+child
+chimney
+china
+chocolate
+church
+circle
+city
+cliff
+clock
+cloth
+cloud
+clown
+club
+coach
+coast
+coat
+code
+coffee
+coin
+cold
+college
+color
+column
+comb
+comedy
+command
+company
+competition
+computer
+concert
+conductor
+conflict
+connection
+continent
+contract
+control
+conversation
+copper
+coral
+corner
+corporation
+cost
+cotton
+country
+court
+cousin
+crab
+crack
+craft
+crane
+crash
+cream
+credit
+crime
+cross
+crow
+crown
+crystal
+culture
+cup
+currency
+curtain
+curve
+cushion
+cycle
+dad
+dance
+danger
+darkness
+data
+date
+daughter
+day
+death
+debt
+decoration
+degree
+delay
+delivery
+demon
+dentist
+departure
+desert
+design
+desk
+diamond
+dictionary
+dinner
+dinosaur
+direction
+dirt
+disaster
+disease
+dish
+distance
+doctor
+document
+dog
+dollar
+dolphin
+door
+dream
+dress
+drink
+driver
+drum
+duck
+dust
+eagle
+ear
+earth
+east
+echo
+economy
+edge
+education
+egg
+electricity
+elephant
+elevator
+emergency
+engine
+engineer
+envelope
+environment
+episode
+equipment
+error
+escape
+estate
+europe
+event
+exam
+example
+exchange
+exercise
+experience
+experiment
+expert
+eye
+face
+factory
+failure
+fair
+fairy
+family
+fan
+farm
+fashion
+father
+feather
+feature
+fence
+festival
+field
+figure
+film
+finger
+fire
+firefighter
+fish
+flag
+flame
+flash
+flight
+floor
+flower
+fluid
+fly
+focus
+fog
+food
+foot
+football
+forest
+fork
+form
+fortune
+foundation
+fox
+frame
+france
+freedom
+friend
+frog
+front
+fruit
+fuel
+fun
+furniture
+future
+galaxy
+game
+garage
+garden
+garlic
+gas
+gate
+gear
+gem
+generation
+genius
+geography
+ghost
+giant
+gift
+ginger
+glass
+glove
+goal
+goat
+gold
+government
+grain
+grass
+gravity
+green
+ground
+group
+growth
+guard
+guitar
+gun
+gym
+habit
+hair
+hammer
+hand
+harbor
+hard
+harmony
+hat
+head
+health
+heart
+heat
+heaven
+helicopter
+helmet
+hero
+hill
+history
+hockey
+hole
+holiday
+home
+honey
+hood
+hope
+horse
+hospital
+hotel
+hour
+house
+human
+humor
+ice
+idea
+identity
+image
+impact
+industry
+information
+insect
+instrument
+insurance
+interest
+internet
+invention
+iron
+island
+issue
+jacket
+jaguar
+jail
+jam
+japan
+jar
+jazz
+jeans
+jelly
+jewel
+job
+journey
+judge
+juice
+jungle
+justice
+kangaroo
+key
+keyboard
+king
+kitchen
+kite
+knee
+knife
+knowledge
+lab
+label
+laboratory
+lake
+lamp
+land
+language
+laser
+law
+lawyer
+leaf
+league
+leather
+leg
+lemon
+lesson
+letter
+library
+license
+life
+light
+lightning
+limit
+line
+lion
+liquid
+list
+lock
+london
+love
+machine
+magazine
+magic
+magnet
+mail
+mall
+man
+manager
+map
+market
+marriage
+mask
+match
+material
+math
+matter
+meal
+measure
+meat
+media
+medicine
+memory
+menu
+metal
+meteor
+method
+mexico
+microscope
+middle
+milk
+million
+mind
+mine
+mineral
+minute
+mirror
+mission
+mist
+model
+money
+monkey
+monster
+moon
+morning
+mother
+motion
+motor
+mountain
+mouse
+mouth
+movie
+mud
+museum
+music
+nail
+name
+nation
+nature
+neck
+needle
+neighbor
+network
+news
+night
+noise
+north
+nose
+note
+novel
+number
+nurse
+nut
+ocean
+office
+oil
+olive
+opera
+operation
+opinion
+orange
+orbit
+organization
+oven
+owl
+owner
+oxygen
+oyster
+package
+page
+paint
+painter
+painting
+pair
+palace
+palm
+pan
+panda
+paper
+parachute
+parade
+parent
+park
+parking
+part
+partner
+party
+passage
+passenger
+password
+paste
+path
+patient
+pattern
+peace
+peach
+peanut
+pear
+pen
+pencil
+penguin
+people
+pepper
+percentage
+performance
+period
+person
+pet
+phone
+photograph
+piano
+picture
+pie
+piece
+pig
+pilot
+pin
+pine
+pipe
+pirate
+pizza
+planet
+plant
+plastic
+plate
+platform
+play
+player
+plaza
+plot
+pocket
+poem
+poet
+point
+police
+policy
+pollution
+pond
+pool
+population
+port
+position
+pot
+potato
+power
+practice
+present
+president
+pressure
+price
+prince
+princess
+printer
+prison
+problem
+process
+product
+profession
+professor
+program
+project
+promise
+property
+protection
+protein
+protest
+pump
+pumpkin
+punishment
+puzzle
+quality
+quantity
+queen
+question
+quiet
+rabbit
+race
+radio
+rail
+rain
+rainbow
+rainforest
+range
+rat
+rate
+reaction
+reality
+reason
+recipe
+record
+rectangle
+recycle
+relationship
+religion
+report
+research
+restaurant
+result
+revolution
+reward
+rhythm
+rice
+rich
+ring
+river
+road
+robot
+rock
+rocket
+role
+roll
+room
+root
+rope
+rose
+rubber
+rule
+runner
+safety
+sail
+salad
+salary
+sale
+salt
+sample
+sand
+sandwich
+satellite
+sauce
+scale
+school
+science
+scientist
+scissors
+screen
+sea
+season
+seat
+secret
+security
+seed
+selection
+self
+sentence
+series
+service
+shadow
+shape
+shark
+sheep
+sheet
+shelf
+shell
+ship
+shirt
+shoe
+shop
+shore
+shot
+shoulder
+shower
+side
+sign
+signal
+silence
+silver
+singer
+sister
+size
+skate
+skin
+skirt
+sky
+sleep
+smile
+smoke
+snow
+soap
+soccer
+society
+sock
+soldier
+solution
+sound
+south
+space
+speaker
+speed
+spider
+spirit
+sport
+spring
+square
+stage
+star
+station
+statue
+steam
+steel
+step
+stone
+storm
+story
+street
+strength
+string
+student
+studio
+style
+subject
+submarine
+success
+sugar
+suggestion
+summer
+sun
+sunlight
+supermarket
+surface
+surprise
+sweater
+swimming
+switch
+symbol
+system
+table
+tail
+talent
+tank
+tape
+target
+task
+tax
+teacher
+team
+technology
+telephone
+television
+temperature
+temple
+tennis
+tent
+term
+test
+theater
+theory
+thermometer
+thing
+thought
+thread
+throat
+thunder
+ticket
+time
+tire
+title
+toast
+today
+toe
+tool
+tooth
+top
+tour
+tower
+town
+toy
+track
+trade
+traffic
+train
+transport
+trap
+travel
+tree
+trial
+triangle
+trip
+trophy
+trouble
+truck
+truth
+tunnel
+turkey
+turn
+turtle
+type
+umbrella
+uncle
+understanding
+uniform
+unit
+universe
+university
+update
+user
+vacation
+valley
+value
+van
+variety
+vehicle
+version
+victory
+video
+view
+village
+violin
+virus
+vision
+visitor
+voice
+volcano
+volleyball
+volume
+vote
+waffle
+wall
+war
+warehouse
+warning
+water
+wave
+wealth
+weather
+web
+wedding
+week
+weight
+west
+whale
+wheel
+whip
+whistle
+white
+window
+wine
+wing
+winter
+wire
+wisdom
+wolf
+woman
+wood
+word
+work
+world
+worm
+writer
+writing
+yard
+year
+yellow
+zebra
+zero
+zoo
+`;
+
+const vocabulary = [...new Set(
+    vocabularyText.toLowerCase().split(/\s+/).filter(Boolean)
+)];
+
+// -----------------------------------------------------
+// APPLICATION STATE
+// -----------------------------------------------------
+
+let extractor = null;
+let modelPromise = null;
+let isGenerating = false;
+
+const $ = id => document.getElementById(id);
+
+const setStatus = message => {
+    $("status").textContent = message;
+};
+
+const setProgress = value => {
+    $("progressBar").style.width =
+        Math.max(0, Math.min(100, value)) + "%";
+};
+
+function parseWords(id) {
+    return [...new Set(
+        $(id).value
+            .split(/[\n,;]+/)
+            .map(word => word.trim().toLowerCase())
+            .filter(Boolean)
+    )];
+}
+
+function getRiskSettings() {
+    return {
+        opponent: Number($("opponentRisk").value) / 100,
+        neutral: Number($("neutralRisk").value) / 100,
+        assassin: Number($("assassinRisk").value) / 100
+    };
+}
+
+// -----------------------------------------------------
+// SYNCHRONIZED CONTROLS
+// -----------------------------------------------------
+
+function connectPair(sliderId, numberId, min, max, formatter) {
+    const slider = $(sliderId);
+    const number = $(numberId);
+
+    slider.addEventListener("input", () => {
+        number.value = slider.value;
+        if (formatter) formatter(slider.value);
+    });
+
+    number.addEventListener("input", () => {
+        let value = Number(number.value);
+
+        if (!Number.isFinite(value)) return;
+
+        value = Math.max(min, Math.min(max, value));
+        slider.value = value;
+
+        if (formatter) formatter(value);
+    });
+}
+
+connectPair("opponentRisk", "opponentRiskNumber", 0, 100);
+connectPair("neutralRisk", "neutralRiskNumber", 0, 100);
+connectPair("assassinRisk", "assassinRiskNumber", 0, 100);
+
+$("similarity").addEventListener("input", () => {
+    $("similarityValue").textContent =
+        Number($("similarity").value).toFixed(2);
+});
+
+connectPair("suggestionSlider", "suggestionCount", 1, 10);
+
+$("suggestionCount").addEventListener("change", () => {
+    const value = Math.max(1, Math.min(10,
+        Number($("suggestionCount").value) || 1));
+    $("suggestionCount").value = value;
+    $("suggestionSlider").value = value;
+});
+
+// -----------------------------------------------------
+// MODEL LOADING
+// -----------------------------------------------------
+
+async function loadModel() {
+    if (extractor) return extractor;
+    if (modelPromise) return modelPromise;
+
+    modelPromise = (async () => {
+        setStatus("Loading language model. This may take a moment...");
+
+        extractor = await pipeline(
+            "feature-extraction",
+            "Xenova/all-MiniLM-L6-v2",
+            {
+                quantized: true,
+                progress_callback: progress => {
+                    if (progress.status === "progress" &&
+                        Number.isFinite(progress.progress)) {
+                        setStatus(
+                            "Downloading model: " +
+                            Math.round(progress.progress) + "%"
+                        );
+                    } else if (progress.status) {
+                        setStatus("Model: " + progress.status);
+                    }
+                }
+            }
+        );
+
+        setStatus("Language model loaded.");
+        return extractor;
+    })();
+
+    try {
+        return await modelPromise;
+    } catch (error) {
+        modelPromise = null;
+        extractor = null;
+        throw error;
+    }
+}
+
+// -----------------------------------------------------
+// EMBEDDINGS AND SIMILARITY
+// -----------------------------------------------------
+
+async function embedWords(words) {
+    const model = await loadModel();
+
+    const output = await model(words, {
+        pooling: "mean",
+        normalize: true
+    });
+
+    const dimension = output.dims[output.dims.length - 1];
+
+    const vectors = [];
+
+    for (let i = 0; i < words.length; i++) {
+        const start = i * dimension;
+        vectors.push(output.data.slice(start, start + dimension));
+    }
+
+    return vectors;
+}
+
+function cosineSimilarity(vectorA, vectorB) {
+    let dot = 0;
+
+    for (let i = 0; i < vectorA.length; i++) {
+        dot += vectorA[i] * vectorB[i];
+    }
+
+    return dot;
+}
+
+function compareToGroup(clueVector, groupVectors, words) {
+    return words.map((word, index) => ({
+        word,
+        similarity: cosineSimilarity(clueVector, groupVectors[index])
+    })).sort((a, b) => b.similarity - a.similarity);
+}
+
+// -----------------------------------------------------
+// CANDIDATE RANKING
+// -----------------------------------------------------
+
+function evaluateCandidate(
+    clue,
+    clueVector,
+    board,
+    threshold,
+    risks
+) {
+    const targets = compareToGroup(
+        clueVector, board.targetVectors, board.targets
+    );
+
+    const opponents = compareToGroup(
+        clueVector, board.opponentVectors, board.opponents
+    );
+
+    const neutrals = compareToGroup(
+        clueVector, board.neutralVectors, board.neutrals
+    );
+
+    const assassins = compareToGroup(
+        clueVector, board.assassinVectors, board.assassins
+    );
+
+    const matchedTargets = targets.filter(
+        item => item.similarity >= threshold
+    );
+
+    // A clue must connect to at least one target.
+    if (matchedTargets.length === 0) return null;
+
+    // Reward multiple target connections.
+    // Squaring similarity gives stronger connections more influence.
+    const targetScore = matchedTargets.reduce(
+        (sum, item) => sum + Math.pow(Math.max(0, item.similarity), 2),
+        0
+    );
+
+    const maxOpponent = Math.max(
+        0, ...opponents.map(item => item.similarity)
+    );
+
+    const maxNeutral = Math.max(
+        0, ...neutrals.map(item => item.similarity)
+    );
+
+    const maxAssassin = Math.max(
+        0, ...assassins.map(item => item.similarity)
+    );
+
+    // Assassin carries a much larger base penalty.
+    const opponentPenalty = risks.opponent * maxOpponent * 1.0;
+    const neutralPenalty = risks.neutral * maxNeutral * 0.8;
+    const assassinPenalty = risks.assassin * maxAssassin * 2.8;
+
+    const totalRiskPenalty =
+        opponentPenalty + neutralPenalty + assassinPenalty;
+
+    // Used internally for ranking only. Never displayed.
+    const rankingScore = targetScore - totalRiskPenalty;
+
+    // Flag clues where a dangerous word has a strong association
+    // relative to the strongest target association.
+    const strongestTarget = Math.max(
+        0, ...matchedTargets.map(item => item.similarity)
+    );
+
+    const strongestRisk = Math.max(
+        risks.opponent * maxOpponent,
+        risks.neutral * maxNeutral,
+        risks.assassin * maxAssassin * 2.8
+    );
+
+    const risky =
+        strongestRisk >= strongestTarget * 0.85 ||
+        totalRiskPenalty >= targetScore * 0.70;
+
+    return {
+        clue,
+        targets,
+        opponents,
+        neutrals,
+        assassins,
+        matchedTargets,
+        targetScore,
+        totalRiskPenalty,
+        rankingScore,
+        risky
+    };
+}
+
+// -----------------------------------------------------
+// BATCHED CANDIDATE PROCESSING
+// -----------------------------------------------------
+
+async function generateClues() {
+    if (isGenerating) return;
+
+    const targets = parseWords("targets");
+    const opponents = parseWords("opponents");
+    const neutrals = parseWords("neutrals");
+    const assassins = parseWords("assassins");
+
+    if (targets.length === 0) {
+        alert("Enter at least one target word.");
+        return;
+    }
+
+    const boardWords = [
+        ...targets,
+        ...opponents,
+        ...neutrals,
+        ...assassins
+    ];
+
+    const boardWordSet = new Set(boardWords);
+
+    const candidates = vocabulary.filter(
+        word => !boardWordSet.has(word)
+    );
+
+    if (candidates.length === 0) {
+        alert("No candidate clues are available.");
+        return;
+    }
+
+    isGenerating = true;
+    $("generateButton").disabled = true;
+    $("results").innerHTML = "";
+    $("resultCount").textContent = "";
+    setProgress(0);
+
+    try {
+        await loadModel();
+
+        setStatus("Embedding board words...");
+
+        const [
+            targetVectors,
+            opponentVectors,
+            neutralVectors,
+            assassinVectors
+        ] = await Promise.all([
+            embedWords(targets),
+            embedWords(opponents),
+            embedWords(neutrals),
+            embedWords(assassins)
+        ]);
+
+        const board = {
+            targets,
+            opponents,
+            neutrals,
+            assassins,
+            targetVectors,
+            opponentVectors,
+            neutralVectors,
+            assassinVectors
+        };
+
+        const threshold = Number($("similarity").value);
+        const risks = getRiskSettings();
+
+        const batchSize = 48;
+        const keepCount = Math.max(
+            50,
+            Number($("suggestionCount").value) * 5
+        );
+
+        let bestCandidates = [];
+
+        for (
+            let start = 0;
+            start < candidates.length;
+            start += batchSize
+        ) {
+            const batch = candidates.slice(
+                start, start + batchSize
+            );
+
+            const candidateVectors = await embedWords(batch);
+
+            for (let i = 0; i < batch.length; i++) {
+                const result = evaluateCandidate(
+                    batch[i],
+                    candidateVectors[i],
+                    board,
+                    threshold,
+                    risks
+                );
+
+                if (result) {
+                    bestCandidates.push(result);
+                }
+            }
+
+            // Keep only the strongest candidates between batches.
+            bestCandidates.sort(
+                (a, b) => b.rankingScore - a.rankingScore
+            );
+
+            if (bestCandidates.length > keepCount) {
+                bestCandidates.length = keepCount;
+            }
+
+            // Candidate embeddings are discarded after this batch.
+            setProgress(
+                ((start + batch.length) / candidates.length) * 100
+            );
+
+            setStatus(
+                "Analyzing clues: " +
+                Math.min(start + batch.length, candidates.length) +
+                " of " + candidates.length
+            );
+
+            // Allow the browser to update its interface.
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
+
+        displayResults(bestCandidates);
+
+        setProgress(100);
+        setStatus("Analysis complete.");
+
+    } catch (error) {
+        console.error(error);
+        setStatus("Error: " + error.message);
+        alert("Unable to generate clues. Check your internet connection and try again.");
+    } finally {
+        isGenerating = false;
+        $("generateButton").disabled = false;
+    }
+}
+
+// -----------------------------------------------------
+// RESULTS DISPLAY
+// -----------------------------------------------------
+
+function formatSimilarity(value) {
+    return value.toFixed(3);
+}
+
+function makeCorrelationGroup(title, items) {
+    const container = document.createElement("div");
+    container.className = "correlation-group";
+
+    const heading = document.createElement("h4");
+    heading.textContent = title;
+    container.appendChild(heading);
+
+    if (items.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "correlation-row";
+        empty.textContent = "No words entered.";
+        container.appendChild(empty);
+        return container;
+    }
+
+    items.forEach(item => {
+        const row = document.createElement("div");
+        row.className = "correlation-row";
+
+        const word = document.createElement("span");
+        word.textContent = item.word;
+
+        const value = document.createElement("span");
+        value.className = "correlation-value";
+        value.textContent = formatSimilarity(item.similarity);
+
+        row.append(word, value);
+        container.appendChild(row);
+    });
+
+    return container;
+}
+
+function createResultCard(result) {
+    const card = document.createElement("article");
+    card.className = "result-card" + (result.risky ? " risky" : "");
+
+    const main = document.createElement("div");
+    main.className = "result-main";
+
+    const top = document.createElement("div");
+    top.className = "result-top";
+
+    const clue = document.createElement("div");
+    clue.className = "clue-name";
+    clue.textContent = result.clue;
+
+    top.appendChild(clue);
+
+    if (result.risky) {
+        const risk = document.createElement("span");
+        risk.className = "risk-label";
+        risk.textContent = "Risky clue";
+        top.appendChild(risk);
+    }
+
+    const matched = document.createElement("div");
+    matched.className = "matched-words";
+
+    const matchedLabel = document.createElement("strong");
+    matchedLabel.textContent = "Target matches: ";
+
+    matched.appendChild(matchedLabel);
+
+    result.matchedTargets.forEach((item, index) => {
+        if (index > 0) matched.appendChild(
+            document.createTextNode(" · ")
+        );
+
+        const word = document.createElement("span");
+        word.textContent =
+            item.word + " (" + formatSimilarity(item.similarity) + ")";
+
+        matched.appendChild(word);
+    });
+
+    main.append(top, matched);
+
+    const details = document.createElement("details");
+
+    const summary = document.createElement("summary");
+    summary.textContent = "View all word correlations";
+
+    const content = document.createElement("div");
+    content.className = "correlation-details";
+
+    content.appendChild(
+        makeCorrelationGroup("Your team's words", result.targets)
+    );
+
+    content.appendChild(
+        makeCorrelationGroup("Opponent words", result.opponents)
+    );
+
+    content.appendChild(
+        makeCorrelationGroup("Neutral words", result.neutrals)
+    );
+
+    content.appendChild(
+        makeCorrelationGroup("Assassin word", result.assassins)
+    );
+
+    details.append(summary, content);
+    card.append(main, details);
+
+    return card;
+}
+
+function displayResults(results) {
+    const requestedCount = Number($("suggestionCount").value);
+    const hideRisky = $("hideRisky").checked;
+
+    const visibleResults = hideRisky
+        ? results.filter(result => !result.risky)
+        : results;
+
+    const selected = visibleResults.slice(0, requestedCount);
+
+    $("results").innerHTML = "";
+
+    if (selected.length === 0) {
+        $("results").innerHTML =
+            '<div class="empty-state">No clues met the current similarity and risk settings. Try lowering the target similarity or adjusting risk aversion.</div>';
+
+        $("resultCount").textContent = "0 suggestions";
+        return;
+    }
+
+    const fragment = document.createDocumentFragment();
+
+    selected.forEach(result => {
+        fragment.appendChild(createResultCard(result));
+    });
+
+    $("results").appendChild(fragment);
+
+    $("resultCount").textContent =
+        selected.length + " suggestions";
+}
+
+// -----------------------------------------------------
+// BUTTON EVENTS
+// -----------------------------------------------------
+
+$("generateButton").addEventListener("click", generateClues);
+
+$("clearButton").addEventListener("click", () => {
+    $("targets").value = "";
+    $("opponents").value = "";
+    $("neutrals").value = "";
+    $("assassins").value = "";
+
+    $("results").innerHTML =
+        '<div class="empty-state">Enter your board words and generate suggestions.</div>';
+
+    $("resultCount").textContent = "";
+    setStatus("Board cleared.");
+    setProgress(0);
+});
+
+</script>
+</body>
+</html>
